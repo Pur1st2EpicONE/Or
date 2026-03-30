@@ -1,7 +1,11 @@
+// Package or provides a function to combine multiple channels into a single channel
+// that closes when any of the input channels closes or receives a value.
 package or
 
 import "sync"
 
+// Or returns a channel that closes when any of the input channels closes or receives a value.
+// If called with 0 channels, returns nil. If called with 1 channel, returns it unchanged.
 func Or(channels ...<-chan any) <-chan any {
 	switch len(channels) {
 	case 0:
