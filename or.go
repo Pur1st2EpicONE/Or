@@ -4,27 +4,53 @@ package or
 
 import "sync"
 
-// Or returns a channel that closes when any of the input channels closes or receives a value.
-// If called with 0 channels, returns nil. If called with 1 channel, returns it unchanged.
+// Or returns a channel that closes when any of the provided input channels
+// close or send a value. It is useful for combining multiple cancellation
+// or signaling channels into a single channel.
+//
+// Example usage:
+//
+//	done := Or(ch1, ch2, ch3)
+//	<-done // unblocks when any of ch1, ch2, or ch3 is closed or sends a value
+//
+// The function ignores any nil channels. If no channels are provided, it
+// returns a closed channel immediately. If exactly one channel is provided,
+// it returns that channel directly.
 func Or(channels ...<-chan any) <-chan any {
-	switch len(channels) {
-	case 0:
-		return nil
-	case 1:
-		return channels[0]
+
+	var nonNil []<-chan any
+	for _, ch := range channels {
+		if ch != nil {
+			nonNil = append(nonNil, ch)
+		}
 	}
+
+	switch len(nonNil) {
+	case 0:
+		c := make(chan any)
+		close(c)
+		return c
+	case 1:
+		return nonNil[0]
+	}
+
 	orDone := make(chan any)
 	go func() {
 		var once sync.Once
-		for _, channel := range channels {
-			go func(channel <-chan any) {
+		notify := func() {
+			once.Do(func() { close(orDone) })
+		}
+		for _, ch := range nonNil {
+			go func(c <-chan any) {
 				select {
-				case <-channel:
-					once.Do(func() { close(orDone) })
+				case <-c:
+					notify()
 				case <-orDone:
 				}
-			}(channel)
+			}(ch)
 		}
 	}()
+
 	return orDone
+
 }

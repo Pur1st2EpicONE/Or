@@ -53,8 +53,11 @@ func TestSingleChannel(t *testing.T) {
 
 func TestNoChannels(t *testing.T) {
 
-	if ch := Or(); ch != nil {
-		t.Fatalf("expected nil for or1 with no channels")
+	ch := Or()
+	select {
+	case <-ch:
+	default:
+		t.Fatalf("expected closed channel for Or() with no channels")
 	}
 
 }
